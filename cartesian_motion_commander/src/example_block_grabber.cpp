@@ -111,6 +111,8 @@ int main(int argc, char** argv) {
         
         
         ROS_INFO("moving to grasp pose");
+
+        // ! need to modify here so that it goes with the camera coordinates
         //lower tool to approach part to grasp
         //tool_pose.pose.position.y=0; 
         tool_pose.pose.position.z = 0.0343; //block is 0.035 high      
