@@ -133,7 +133,7 @@ void ImageConverter::imageCb(const sensor_msgs::ImageConstPtr& msg){
         image_pub_.publish(cv_ptr->toImageMsg());
         
         // ! The following protion is the calculation of transformaed x,y coordinate
-        int i_centroid_transformed, j_centroid_transformed;
+        int i_centroid_transformed, j_centroid_transformed; 
 
         block_pose_.pose.position.x = i_centroid; //not true, but legal
         block_pose_.pose.position.y = j_centroid; //not true, but legal

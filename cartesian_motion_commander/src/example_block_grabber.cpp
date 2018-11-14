@@ -23,6 +23,10 @@
 #include <std_srvs/SetBool.h>
 using namespace std;
 
+//! Following are global setting for target drop off
+xDropoff = 0.5;
+yDropoff = 0.5;
+
 int main(int argc, char** argv) {
     ros::init(argc, argv, "example_arm_cart_move_ac"); // name this node 
     ros::NodeHandle nh; //standard ros node handle     
@@ -79,7 +83,7 @@ int main(int argc, char** argv) {
     }
 
     while (ros::ok()) {
-        //move out of way for camera view:
+        //TODO:  Move out the camera field of view
         ROS_INFO("moving out of camera view");
         tool_pose.pose.position.y=0.3; 
         tool_pose.pose.position.z = 0.3; //0.01;          
@@ -92,12 +96,16 @@ int main(int argc, char** argv) {
             ros::Duration(arrival_time + 0.2).sleep();
         } else {
             ROS_WARN("unsuccessful plan; rtn_code = %d", rtn_val);
-        }        
-        
+        }
+
+
+        //TODO: Move towards the given point:
         //move to approach pose:
-        ROS_INFO("moving to approach pose");
-        tool_pose.pose.position.y=0.0; 
-        tool_pose.pose.position.z = 0.05; //0.01;          
+        ROS_INFO("[Critical Location:] moving to approach pose");
+        //! Get pose here:
+        tool_pose.pose.position.x = 0.0; //! 
+        tool_pose.pose.position.y=0.0; //!
+        tool_pose.pose.position.z = 0.05; //* Hover above control          
         ROS_INFO("requesting plan to descend:");
         xformUtils.printPose(tool_pose);
         rtn_val = cart_motion_commander.plan_cartesian_traj_qprev_to_des_tool_pose(nsteps, arrival_time, tool_pose);
@@ -109,14 +117,10 @@ int main(int argc, char** argv) {
             ROS_WARN("unsuccessful plan; rtn_code = %d", rtn_val);
         }           
         
-        
-        ROS_INFO("moving to grasp pose");
-
-        // ! need to modify here so that it goes with the camera coordinates
+        //TODO: Move towards the vacuum pose:
+        ROS_INFO("[Critical Location:] moving to grasp pose");
         //lower tool to approach part to grasp
-        //tool_pose.pose.position.y=0; 
         tool_pose.pose.position.z = 0.0343; //block is 0.035 high      
-
         ROS_INFO("requesting plan to descend:");
         xformUtils.printPose(tool_pose);
         rtn_val = cart_motion_commander.plan_cartesian_traj_qprev_to_des_tool_pose(nsteps, arrival_time, tool_pose);
@@ -128,7 +132,8 @@ int main(int argc, char** argv) {
             ROS_WARN("unsuccessful plan; rtn_code = %d", rtn_val);
         }
 
-        ROS_INFO("enabling vacuum gripper");
+        //TODO: Enable the Vacuum gripper
+        ROS_INFO("[Critical Location:] enabling vacuum gripper:");
         //enable the vacuum gripper:
         srv.request.data = true;
         while (!client.call(srv) && ros::ok()) {
@@ -137,11 +142,12 @@ int main(int argc, char** argv) {
             ros::Duration(0.5).sleep();
         }
 
-
-
+        //TODO: Going towards final dropoff site:
+        ROS_INFO("[Critical Location:] Moving towards drop off:")
         ROS_INFO("requesting plan to depart with grasped object:");
-        tool_pose.pose.position.z = 0.3;         
-
+        tool_pose.pose.position.x = xDropoff;
+        tool_pose.pose.position.y = yDropoff;
+        tool_pose.pose.position.z = 0.5;         
         xformUtils.printPose(tool_pose);
         rtn_val = cart_motion_commander.plan_cartesian_traj_qprev_to_des_tool_pose(nsteps, arrival_time, tool_pose);
         if (rtn_val == arm_motion_action::arm_interfaceResult::SUCCESS) {
@@ -152,8 +158,8 @@ int main(int argc, char** argv) {
             ROS_WARN("unsuccessful plan; rtn_code = %d", rtn_val);
         }
 
-        //disable the vacuum gripper:
-
+        //TODO: disable the vacuum gripper:
+        ROS_INFO("[Critical Location:] Disabling Gripper:")
         srv.request.data = false;
         while (!client.call(srv) && ros::ok()) {
             ROS_INFO("Sending command to gripper...");
