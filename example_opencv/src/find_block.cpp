@@ -181,6 +181,7 @@ void ImageConverter::imageCb(const sensor_msgs::ImageConstPtr& msg){
         double corrected_camera_x, corrected_camera_y;
         corrected_camera_x = fabs(x_centroid - 320)*scale_factor * 1.0;
         corrected_camera_y = fabs(y_centroid - 240)*scale_factor * -1.0;
+        ROS_INFO("[Math] Calculated Corrected Camera position is: [%f,%f]",corrected_camera_x,corrected_camera_y);
 
         //*Construct Matrix for transformations:
         Eigen::Matrix4d TF_object2camera; // Object to Camera Frame transformation
@@ -192,30 +193,34 @@ void ImageConverter::imageCb(const sensor_msgs::ImageConstPtr& msg){
         theta = atan((e_x1-e_x4)/(e_y1-e_y4));
         rotationo2c = theta + 3.14159/2;
         ROS_INFO("[Math] Calculated Rotation Theta is: %f, Calculated rotationo2c is: %f.",theta,rotationo2c);
-
+        
         //* Populate object to camera matrix:
         TF_object2camera.row(0) << cos(rotationo2c) , -sin(rotationo2c), 0 , corrected_camera_x;
         TF_object2camera.row(1) << sin(rotationo2c) , cos(rotationo2c) , 0 , corrected_camera_y;
         TF_object2camera.row(2) <<        0         ,         0        , 1 ,        0;
-        TF_object2camera.row(4) <<        0         ,         0        , 0 ,        1;
-        ROS_INFO_STREAM("[Math] Calculated Object to Camera Transform matrix is: "<<TF_object2camera);
-
+        TF_object2camera.row(3) <<        0         ,         0        , 0 ,        1;
+        ROS_INFO_STREAM("[Math_MAT] Calculated Object to Camera Transform matrix is: "<<TF_object2camera);
+        ROS_INFO("[Math] Pass Object to Camera matrix population...");
+        
         //* Populate camera to robot matrix:
         double camera_rotation = -0.2;
         TF_camera2robot.row(0) << cos(camera_rotation),-sin(camera_rotation),0,camera_center_x;
         TF_camera2robot.row(1) << sin(camera_rotation), cos(camera_rotation),0,camera_center_y;
         TF_camera2robot.row(2) << 0                   , 0                   ,0,0;
         TF_camera2robot.row(3) << 0                   , 0                   ,0,1;
-        ROS_INFO_STREAM("[Math] Calculated Camera to Robot Transform matrix is: "<<TF_camera2robot);
+        ROS_INFO_STREAM("[Math_MAT] Calculated Camera to Robot Transform matrix is: "<<TF_camera2robot);
+        ROS_INFO("[Math] Pass Camera to robot matrix population...");
 
         //* Final Transformation matrix = Object to Camera * Camera to Robot:
         F_TF_object2robot = TF_object2camera * TF_camera2robot;
-        ROS_INFO_STREAM("[Math] Calculated Object to Robot Transform matrix is: "<<TF_camera2robot);
-
+        ROS_INFO_STREAM("[Math_MAT] Calculated Object to Robot Transform matrix is: "<<F_TF_object2robot);
+        ROS_INFO("[Math] Pass Final Transform Matrix Calculation...");
+        
         //* Obtain Useful Information:
         double x_coordinate = F_TF_object2robot(0,3);
         double y_coordinate = F_TF_object2robot(1,3);
         double z_coordinate = 0;
+        ROS_INFO("[Math_Final] Caculated x_coordinate is: %f, y_coordinate is: %f",x_coordinate,y_coordinate);
         
         //* Give back to system:
         block_pose_.pose.position.x = x_coordinate; 
@@ -223,7 +228,7 @@ void ImageConverter::imageCb(const sensor_msgs::ImageConstPtr& msg){
         block_pose_.pose.position.z = z_coordinate;
         
         double orientation = -acos(F_TF_object2robot(0,0));
-
+        
         // need camera info to fill in x,y,and orientation x,y,z,w
         //geometry_msgs::Quaternion quat_est
         //quat_est = xformUtils.convertPlanarPsi2Quaternion(yaw_est);
