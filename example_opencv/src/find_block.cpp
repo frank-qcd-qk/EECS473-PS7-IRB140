@@ -11,6 +11,37 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <geometry_msgs/PoseStamped.h>
 #include <xform_utils/xform_utils.h>
+//! Additional Message for calucating transform
+#include <geometry_msgs/Vector3.h>
+#include <Eigen/Eigen>
+#include <Eigen/Dense>
+#include <Eigen/Geometry>
+#include <math.h>
+#include <numeric>
+#include <vector>
+#include <functional>
+
+//! Use the following to record camera location experiment:
+//* The following are used for recording initial centralization data:
+double e_i1 = 320.0;
+double e_j1 = 240.0;
+double e_x1 = 0.543547;
+double e_y1 = 0.319172;
+//* The following are used for recording second set of data:
+double e_i2 = 471.65789;
+double e_j2 = 209.47368;
+double e_x2 = 1.0;
+double e_y2 = 0.319172;
+//* The following are used for controlled calculation
+double e_i3 = 320.0;
+double e_j3 = 332.0;
+double e_x3 = 0.490582;
+double e_y3 = 0.053320;
+
+double e_i4 = 265.0;
+double e_j4 = 240.0;
+double e_x4 = 0.385604;
+double e_y4 = 0.350798;
 
 static const std::string OPENCV_WINDOW = "Open-CV display window";
 using namespace std;
@@ -131,18 +162,72 @@ void ImageConverter::imageCb(const sensor_msgs::ImageConstPtr& msg){
         // can view this stream in ROS with: 
         //rosrun image_view image_view image:=/image_converter/output_video
         image_pub_.publish(cv_ptr->toImageMsg());
-        
-        // ! The following protion is the calculation of transformaed x,y coordinate
-        int i_centroid_transformed, j_centroid_transformed; 
+        ROS_INFO("[Find_Block.cpp]Hand Over to my code:...");
 
-        block_pose_.pose.position.x = i_centroid; //not true, but legal
-        block_pose_.pose.position.y = j_centroid; //not true, but legal
-        double theta=0;
+        //* We have x_centroid, y_centroid as input information, theta as 0
+        // ! The following protion is the calculation of transformaed x,y coordinate
+        // * Use experiment result define the world location for camera:
+        double camera_center_x, camera_center_y;
+        camera_center_x = 0.543547;        
+        camera_center_y = 0.319172;
+        ROS_INFO("[Math] Camera world positionis: [%f, %f]",camera_center_x,camera_center_y);
+
+        //* Calculate Scale Factor:
+        double scale_factor;
+        scale_factor = sqrt((e_x1-e_x2)*(e_x1-e_x2)+(e_y1-e_y2)*(e_y1-e_y2))/sqrt((e_i1-e_i2)*(e_i1-e_i2)+(e_j1-e_j2)*(e_j1-e_j2)); //THis value should be around 0.003
+        ROS_INFO("[Math] Camera scale factor is: %f",scale_factor);
+
+        //* Calculate Corrected camera position:
+        double corrected_camera_x, corrected_camera_y;
+        corrected_camera_x = fabs(x_centroid - 320)*scale_factor * 1.0;
+        corrected_camera_y = fabs(y_centroid - 240)*scale_factor * -1.0;
+
+        //*Construct Matrix for transformations:
+        Eigen::Matrix4d TF_object2camera; // Object to Camera Frame transformation
+        Eigen::Matrix4d TF_camera2robot; // Camera to Robot Frame transformation
+        Eigen::Matrix4d F_TF_object2robot; // Final Transformation result matrix
+
+        //* Calculate rotation object to camera:
+        double theta,rotationo2c;
+        theta = atan((e_x1-e_x4)/(e_y1-e_y4));
+        rotationo2c = theta + 3.14159/2;
+        ROS_INFO("[Math] Calculated Rotation Theta is: %f, Calculated rotationo2c is: %f.",theta,rotationo2c);
+
+        //* Populate object to camera matrix:
+        TF_object2camera.row(0) << cos(rotationo2c) , -sin(rotationo2c), 0 , corrected_camera_x;
+        TF_object2camera.row(1) << sin(rotationo2c) , cos(rotationo2c) , 0 , corrected_camera_y;
+        TF_object2camera.row(2) <<        0         ,         0        , 1 ,        0;
+        TF_object2camera.row(4) <<        0         ,         0        , 0 ,        1;
+        ROS_INFO_STREAM("[Math] Calculated Object to Camera Transform matrix is: "<<TF_object2camera);
+
+        //* Populate camera to robot matrix:
+        double camera_rotation = -0.2;
+        TF_camera2robot.row(0) << cos(camera_rotation),-sin(camera_rotation),0,camera_center_x;
+        TF_camera2robot.row(1) << sin(camera_rotation), cos(camera_rotation),0,camera_center_y;
+        TF_camera2robot.row(2) << 0                   , 0                   ,0,0;
+        TF_camera2robot.row(3) << 0                   , 0                   ,0,1;
+        ROS_INFO_STREAM("[Math] Calculated Camera to Robot Transform matrix is: "<<TF_camera2robot);
+
+        //* Final Transformation matrix = Object to Camera * Camera to Robot:
+        F_TF_object2robot = TF_object2camera * TF_camera2robot;
+        ROS_INFO_STREAM("[Math] Calculated Object to Robot Transform matrix is: "<<TF_camera2robot);
+
+        //* Obtain Useful Information:
+        double x_coordinate = F_TF_object2robot(0,3);
+        double y_coordinate = F_TF_object2robot(1,3);
+        double z_coordinate = 0;
         
+        //* Give back to system:
+        block_pose_.pose.position.x = x_coordinate; 
+        block_pose_.pose.position.y = y_coordinate;
+        block_pose_.pose.position.z = z_coordinate;
+        
+        double orientation = -acos(F_TF_object2robot(0,0));
+
         // need camera info to fill in x,y,and orientation x,y,z,w
         //geometry_msgs::Quaternion quat_est
         //quat_est = xformUtils.convertPlanarPsi2Quaternion(yaw_est);
-        block_pose_.pose.orientation = xformUtils.convertPlanarPsi2Quaternion(theta); //not true, but legal
+        block_pose_.pose.orientation = xformUtils.convertPlanarPsi2Quaternion(orientation); //not true, but legal
         block_pose_publisher_.publish(block_pose_);
     }
 
@@ -155,6 +240,7 @@ int main(int argc, char** argv) {
     g_redratio= 10; //choose a threshold to define what is "red" enough
     ros::Duration timer(0.1);
     double x, y, z;
+    ROS_INFO("[Find_Block.cpp]Called!");
     while (ros::ok()) {
         ros::spinOnce();
         timer.sleep();

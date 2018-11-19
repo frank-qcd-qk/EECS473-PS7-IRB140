@@ -24,8 +24,8 @@
 using namespace std;
 
 //! Following are global setting for target drop off
-xDropoff = 0.5;
-yDropoff = 0.5;
+double xDropoff = 0.5;
+double yDropoff = 0.5;
 
 int main(int argc, char** argv) {
     ros::init(argc, argv, "example_arm_cart_move_ac"); // name this node 
@@ -143,7 +143,7 @@ int main(int argc, char** argv) {
         }
 
         //TODO: Going towards final dropoff site:
-        ROS_INFO("[Critical Location:] Moving towards drop off:")
+        ROS_INFO("[Critical Location:] Moving towards drop off:");
         ROS_INFO("requesting plan to depart with grasped object:");
         tool_pose.pose.position.x = xDropoff;
         tool_pose.pose.position.y = yDropoff;
@@ -159,7 +159,7 @@ int main(int argc, char** argv) {
         }
 
         //TODO: disable the vacuum gripper:
-        ROS_INFO("[Critical Location:] Disabling Gripper:")
+        ROS_INFO("[Critical Location:] Disabling Gripper:");
         srv.request.data = false;
         while (!client.call(srv) && ros::ok()) {
             ROS_INFO("Sending command to gripper...");

@@ -69,5 +69,7 @@
             "color": "#ff0000",
             "strikethrough": false,
             "backgroundColor": "transparent"
-        }]
+        }
+    ],
+    "C_Cpp.clang_format_fallbackStyle": "{BasedOnStyle: Google, IndentWidth: 4}"
 }
