@@ -195,7 +195,6 @@ void ImageConverter::imageCb(const sensor_msgs::ImageConstPtr& msg){
         double camera_center_x, camera_center_y;
         camera_center_x = 0.543547;        
         camera_center_y = 0.319172;
-
         ROS_INFO("[Math] Camera world positionis: [%f, %f]",camera_center_x,camera_center_y);
 
         //* Calculate Scale Factor:
@@ -218,13 +217,12 @@ void ImageConverter::imageCb(const sensor_msgs::ImageConstPtr& msg){
         //To calculate slope, I imagine the points as points need a linear fit, and by using linear regression algorithm fitting a line within a bunch of points.
         double slope;
         slope = linearRegSlope(xRecorder,yRecorder);// difference/norm
+        ROS_INFO("[Math] Slop Calculated is: %f",slope);
 
         //* Calculate rotation object to camera:
         double rotationo2c;
-        //! Fixing...
         rotationo2c = atan(slope);
-        ROS_INFO("[Math] Slop Calculated is: %f",slope);
-        ROS_INFO("[Math] Calculated rotationo2c is: %f.",rotationo2c);
+        ROS_INFO("[Math] Calculated rotationo2c is: %f.",rotationo2c*180/3.1415926);
         
         //* Populate object to camera matrix:
         TF_object2camera.row(0) << cos(rotationo2c) , -sin(rotationo2c), 0 , corrected_camera_x;
@@ -235,11 +233,11 @@ void ImageConverter::imageCb(const sensor_msgs::ImageConstPtr& msg){
         ROS_INFO("[Math] Pass Object to Camera matrix population...");
         
         //* Populate camera to robot matrix:
-        double camera_rotation = -0.2;
+        double camera_rotation = -0.2; //By experiement and measurement
         TF_camera2robot.row(0) << cos(camera_rotation),-sin(camera_rotation),0,camera_center_x;
         TF_camera2robot.row(1) << sin(camera_rotation), cos(camera_rotation),0,camera_center_y;
-        TF_camera2robot.row(2) << 0                   , 0                   ,1,       0;
-        TF_camera2robot.row(3) << 0                   , 0                   ,0,       1;
+        TF_camera2robot.row(2) <<           0         ,         0           ,1,       0;
+        TF_camera2robot.row(3) <<           0         ,         0           ,0,       1;
         ROS_INFO_STREAM("[Math_MAT] Calculated Camera to Robot Transform matrix is: "<<TF_camera2robot);
         ROS_INFO("[Math] Pass Camera to robot matrix population...");
 
@@ -259,11 +257,6 @@ void ImageConverter::imageCb(const sensor_msgs::ImageConstPtr& msg){
         block_pose_.pose.position.x = x_coordinate; 
         block_pose_.pose.position.y = y_coordinate;
         block_pose_.pose.position.z = z_coordinate;
-        
-        
-        // need camera info to fill in x,y,and orientation x,y,z,w
-        //geometry_msgs::Quaternion quat_est
-        //quat_est = xformUtils.convertPlanarPsi2Quaternion(yaw_est);
         block_pose_.pose.orientation = xformUtils.convertPlanarPsi2Quaternion(orientation); //not true, but legal
         block_pose_publisher_.publish(block_pose_);
     }

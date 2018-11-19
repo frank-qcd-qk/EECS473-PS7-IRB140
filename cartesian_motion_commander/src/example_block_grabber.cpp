@@ -24,6 +24,7 @@
 using namespace std;
 
 //! Following are global setting for target drop off
+
 double xDropoff = 0.5;
 double yDropoff = 0.5;
 
