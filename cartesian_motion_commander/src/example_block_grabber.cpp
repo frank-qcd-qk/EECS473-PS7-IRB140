@@ -24,9 +24,17 @@
 using namespace std;
 
 //! Following are global setting for target drop off
-
 double xDropoff = 0.5;
 double yDropoff = 0.5;
+geometry_msgs::PoseStamped block_position;
+bool getter_flag;
+
+void getUpdatedPosition(const geometry_msgs::PoseStamped& UpdatedPosition) {
+        block_position = UpdatedPosition;
+        getter_flag = true;
+}
+
+
 
 int main(int argc, char** argv) {
     ros::init(argc, argv, "example_arm_cart_move_ac"); // name this node 
@@ -34,6 +42,8 @@ int main(int argc, char** argv) {
     CartMotionCommander cart_motion_commander;
     XformUtils xformUtils;
     ros::ServiceClient client = nh.serviceClient<std_srvs::SetBool>("/sticky_finger/link6");
+    ros::Subscriber position_updater = nh.subscribe("block_pose", 1, getUpdatedPosition);
+
     std_srvs::SetBool srv;
     srv.request.data = true;
 
@@ -83,24 +93,23 @@ int main(int argc, char** argv) {
         ROS_WARN("unsuccessful plan; rtn_code = %d", rtn_val);
     }
 
+    //TODO:  Move out the camera field of view
+    ROS_INFO("moving out of camera view");
+    tool_pose.pose.position.y=0.3; 
+    tool_pose.pose.position.z = 0.3; //0.01;          
+    ROS_INFO("requesting plan to descend:");
+    xformUtils.printPose(tool_pose);
+    rtn_val = cart_motion_commander.plan_cartesian_traj_qprev_to_des_tool_pose(nsteps, arrival_time, tool_pose);
+    if (rtn_val == arm_motion_action::arm_interfaceResult::SUCCESS) {
+        ROS_INFO("successful plan; command execution of trajectory");
+        rtn_val = cart_motion_commander.execute_planned_traj();
+        ros::Duration(arrival_time + 0.2).sleep();
+    } else {
+        ROS_WARN("unsuccessful plan; rtn_code = %d", rtn_val);
+    }
+
     while (ros::ok()) {
-        //TODO:  Move out the camera field of view
-        ROS_INFO("moving out of camera view");
-        tool_pose.pose.position.y=0.3; 
-        tool_pose.pose.position.z = 0.3; //0.01;          
-        ROS_INFO("requesting plan to descend:");
-        xformUtils.printPose(tool_pose);
-        rtn_val = cart_motion_commander.plan_cartesian_traj_qprev_to_des_tool_pose(nsteps, arrival_time, tool_pose);
-        if (rtn_val == arm_motion_action::arm_interfaceResult::SUCCESS) {
-            ROS_INFO("successful plan; command execution of trajectory");
-            rtn_val = cart_motion_commander.execute_planned_traj();
-            ros::Duration(arrival_time + 0.2).sleep();
-        } else {
-            ROS_WARN("unsuccessful plan; rtn_code = %d", rtn_val);
-        }
-
-
-        //TODO: Move towards the given point:
+        //TODO: Move towards the object detected:
         //move to approach pose:
         ROS_INFO("[Critical Location:] moving to approach pose");
         //! Get pose here:

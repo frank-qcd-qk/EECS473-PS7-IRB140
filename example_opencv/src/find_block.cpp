@@ -54,33 +54,6 @@ class ImageConverter {
     XformUtils xformUtils;
 
 public:
-//* Adapted From https://stackoverflow.com/questions/18939869/how-to-get-the-slope-of-a-linear-regression-line-using-c
-double linearRegSlope(const vector<double>& x, const vector<double>& y){
-    if(x.size() != y.size()){
-        ROS_FATAL("Recorder value not match! Error!");
-        return 0;
-    }
-    double n = x.size();
-
-    double avgX = accumulate(x.begin(), x.end(), 0.0) / n;
-    double avgY = accumulate(y.begin(), y.end(), 0.0) / n;
-
-    double numerator = 0.0;
-    double denominator = 0.0;
-
-    for(int i=0; i<n; ++i){
-        numerator += (x[i] - avgX) * (y[i] - avgY);
-        denominator += (x[i] - avgX) * (x[i] - avgX);
-    }
-
-    if(denominator == 0){
-        ROS_FATAL("Slope Denominator = 0! Error!");
-        return 0;
-    }
-
-    return numerator / denominator;
-}
-
     ImageConverter(ros::NodeHandle &nodehandle)
     : it_(nh_) {
         // Subscribe to input video feed and publish output video feed
@@ -109,6 +82,33 @@ double linearRegSlope(const vector<double>& x, const vector<double>& y){
     void imageCb(const sensor_msgs::ImageConstPtr& msg); 
     
 }; //end of class definition
+
+//* Adapted From https://stackoverflow.com/questions/18939869/how-to-get-the-slope-of-a-linear-regression-line-using-c
+double linearRegSlope(const vector<double>& x, const vector<double>& y){
+    if(x.size() != y.size()){
+        ROS_FATAL("Recorder value not match! Error!");
+        return 0;
+    }
+    double n = x.size();
+
+    double avgX = accumulate(x.begin(), x.end(), 0.0) / n;
+    double avgY = accumulate(y.begin(), y.end(), 0.0) / n;
+
+    double numerator = 0.0;
+    double denominator = 0.0;
+
+    for(int i=0; i<n; ++i){
+        numerator += (x[i] - avgX) * (y[i] - avgY);
+        denominator += (x[i] - avgX) * (x[i] - avgX);
+    }
+
+    if(denominator == 0){
+        ROS_FATAL("Slope Denominator = 0! Error!");
+        return 0;
+    }
+
+    return numerator / denominator;
+}
 
 void ImageConverter::imageCb(const sensor_msgs::ImageConstPtr& msg){
         cv_bridge::CvImagePtr cv_ptr; //OpenCV data type
@@ -227,9 +227,9 @@ void ImageConverter::imageCb(const sensor_msgs::ImageConstPtr& msg){
         //* Populate object to camera matrix:
         TF_object2camera.row(0) << cos(rotationo2c) , -sin(rotationo2c), 0 , corrected_camera_x;
         TF_object2camera.row(1) << sin(rotationo2c) , cos(rotationo2c) , 0 , corrected_camera_y;
-        TF_object2camera.row(2) <<        0         ,         0        , 1 ,        0;
-        TF_object2camera.row(3) <<        0         ,         0        , 0 ,        1;
-        ROS_INFO_STREAM("[Math_MAT] Calculated Object to Camera Transform matrix is: "<<TF_object2camera);
+        TF_object2camera.row(2) <<          0       ,         0        , 1 ,        0;
+        TF_object2camera.row(3) <<          0       ,         0        , 0 ,        1;
+        ROS_INFO_STREAM("[Math_MAT] Calculated Object to Camera Transform matrix is: "<<endl<<TF_object2camera);
         ROS_INFO("[Math] Pass Object to Camera matrix population...");
         
         //* Populate camera to robot matrix:
@@ -238,12 +238,12 @@ void ImageConverter::imageCb(const sensor_msgs::ImageConstPtr& msg){
         TF_camera2robot.row(1) << sin(camera_rotation), cos(camera_rotation),0,camera_center_y;
         TF_camera2robot.row(2) <<           0         ,         0           ,1,       0;
         TF_camera2robot.row(3) <<           0         ,         0           ,0,       1;
-        ROS_INFO_STREAM("[Math_MAT] Calculated Camera to Robot Transform matrix is: "<<TF_camera2robot);
+        ROS_INFO_STREAM("[Math_MAT] Calculated Camera to Robot Transform matrix is: "<<endl<<TF_camera2robot);
         ROS_INFO("[Math] Pass Camera to robot matrix population...");
 
         //* Final Transformation matrix = Object to Camera * Camera to Robot:
         F_TF_object2robot = TF_camera2robot*TF_object2camera;
-        ROS_INFO_STREAM("[Math_MAT] Calculated Object to Robot Transform matrix is: "<<F_TF_object2robot);
+        ROS_INFO_STREAM("[Math_MAT] Calculated Object to Robot Transform matrix is: "<<endl<<F_TF_object2robot);
         ROS_INFO("[Math] Pass Final Transform Matrix Calculation...");
         
         //* Obtain Useful Information from final matrix:
