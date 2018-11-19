@@ -215,9 +215,9 @@ void ImageConverter::imageCb(const sensor_msgs::ImageConstPtr& msg){
         Eigen::Matrix4d F_TF_object2robot; // Final Transformation result matrix
 
         //* Calculate rotation slope:
+        //To calculate slope, I imagine the points as points need a linear fit, and by using linear regression algorithm fitting a line within a bunch of points.
         double slope;
         slope = linearRegSlope(xRecorder,yRecorder);// difference/norm
-
 
         //* Calculate rotation object to camera:
         double rotationo2c;
