@@ -12,14 +12,8 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <xform_utils/xform_utils.h>
 //! Additional Message for calucating transform
-#include <geometry_msgs/Vector3.h>
-#include <Eigen/Eigen>
-#include <Eigen/Dense>
-#include <Eigen/Geometry>
 #include <math.h>
 #include <numeric>
-#include <vector>
-#include <functional>
 
 //! Use the following to record camera location experiment:
 //* The following are used for recording initial centralization data:
@@ -60,6 +54,32 @@ class ImageConverter {
     XformUtils xformUtils;
 
 public:
+//* Adapted From https://stackoverflow.com/questions/18939869/how-to-get-the-slope-of-a-linear-regression-line-using-c
+double linearRegSlope(const vector<double>& x, const vector<double>& y){
+    if(x.size() != y.size()){
+        ROS_FATAL("Recorder value not match! Error!");
+        return 0;
+    }
+    double n = x.size();
+
+    double avgX = accumulate(x.begin(), x.end(), 0.0) / n;
+    double avgY = accumulate(y.begin(), y.end(), 0.0) / n;
+
+    double numerator = 0.0;
+    double denominator = 0.0;
+
+    for(int i=0; i<n; ++i){
+        numerator += (x[i] - avgX) * (y[i] - avgY);
+        denominator += (x[i] - avgX) * (x[i] - avgX);
+    }
+
+    if(denominator == 0){
+        ROS_FATAL("Slope Denominator = 0! Error!");
+        return 0;
+    }
+
+    return numerator / denominator;
+}
 
     ImageConverter(ros::NodeHandle &nodehandle)
     : it_(nh_) {
@@ -98,6 +118,8 @@ void ImageConverter::imageCb(const sensor_msgs::ImageConstPtr& msg){
             ROS_ERROR("cv_bridge exception: %s", e.what());
             return;
         }
+        std::vector<double> xRecorder;
+        std::vector<double> yRecorder;
         // look for red pixels; turn all other pixels black, and turn red pixels white
         int npix = 0; //count the red pixels
         int isum = 0; //accumulate the column values of red pixels
@@ -122,6 +144,9 @@ void ImageConverter::imageCb(const sensor_msgs::ImageConstPtr& msg){
                     npix++; //note that found another red pixel
                     isum += i; //accumulate row and col index vals
                     jsum += j;
+                    //! Recorder here!!!
+                    xRecorder.push_back(i-320);
+                    yRecorder.push_back(j-240);
                 } else { //else paint it black
                     cv_ptr->image.at<cv::Vec3b>(j, i)[0] = 0;
                     cv_ptr->image.at<cv::Vec3b>(j, i)[1] = 0;
@@ -170,6 +195,7 @@ void ImageConverter::imageCb(const sensor_msgs::ImageConstPtr& msg){
         double camera_center_x, camera_center_y;
         camera_center_x = 0.543547;        
         camera_center_y = 0.319172;
+
         ROS_INFO("[Math] Camera world positionis: [%f, %f]",camera_center_x,camera_center_y);
 
         //* Calculate Scale Factor:
@@ -179,8 +205,8 @@ void ImageConverter::imageCb(const sensor_msgs::ImageConstPtr& msg){
 
         //* Calculate Corrected camera position:
         double corrected_camera_x, corrected_camera_y;
-        corrected_camera_x = fabs(x_centroid - 320)*scale_factor * 1.0;
-        corrected_camera_y = fabs(y_centroid - 240)*scale_factor * -1.0;
+        corrected_camera_x = (x_centroid - 320)*scale_factor * 1.0;
+        corrected_camera_y = (y_centroid - 240)*scale_factor * -1.0;
         ROS_INFO("[Math] Calculated Corrected Camera position is: [%f,%f]",corrected_camera_x,corrected_camera_y);
 
         //*Construct Matrix for transformations:
@@ -188,11 +214,17 @@ void ImageConverter::imageCb(const sensor_msgs::ImageConstPtr& msg){
         Eigen::Matrix4d TF_camera2robot; // Camera to Robot Frame transformation
         Eigen::Matrix4d F_TF_object2robot; // Final Transformation result matrix
 
+        //* Calculate rotation slope:
+        double slope;
+        slope = linearRegSlope(xRecorder,yRecorder);// difference/norm
+
+
         //* Calculate rotation object to camera:
-        double theta,rotationo2c;
-        theta = atan((e_x1-e_x4)/(e_y1-e_y4));
-        rotationo2c = theta + 3.14159/2;
-        ROS_INFO("[Math] Calculated Rotation Theta is: %f, Calculated rotationo2c is: %f.",theta,rotationo2c);
+        double rotationo2c;
+        //! Fixing...
+        rotationo2c = atan(slope);
+        ROS_INFO("[Math] Slop Calculated is: %f",slope);
+        ROS_INFO("[Math] Calculated rotationo2c is: %f.",rotationo2c);
         
         //* Populate object to camera matrix:
         TF_object2camera.row(0) << cos(rotationo2c) , -sin(rotationo2c), 0 , corrected_camera_x;
@@ -206,28 +238,28 @@ void ImageConverter::imageCb(const sensor_msgs::ImageConstPtr& msg){
         double camera_rotation = -0.2;
         TF_camera2robot.row(0) << cos(camera_rotation),-sin(camera_rotation),0,camera_center_x;
         TF_camera2robot.row(1) << sin(camera_rotation), cos(camera_rotation),0,camera_center_y;
-        TF_camera2robot.row(2) << 0                   , 0                   ,0,0;
-        TF_camera2robot.row(3) << 0                   , 0                   ,0,1;
+        TF_camera2robot.row(2) << 0                   , 0                   ,1,       0;
+        TF_camera2robot.row(3) << 0                   , 0                   ,0,       1;
         ROS_INFO_STREAM("[Math_MAT] Calculated Camera to Robot Transform matrix is: "<<TF_camera2robot);
         ROS_INFO("[Math] Pass Camera to robot matrix population...");
 
         //* Final Transformation matrix = Object to Camera * Camera to Robot:
-        F_TF_object2robot = TF_object2camera * TF_camera2robot;
+        F_TF_object2robot = TF_camera2robot*TF_object2camera;
         ROS_INFO_STREAM("[Math_MAT] Calculated Object to Robot Transform matrix is: "<<F_TF_object2robot);
         ROS_INFO("[Math] Pass Final Transform Matrix Calculation...");
         
-        //* Obtain Useful Information:
+        //* Obtain Useful Information from final matrix:
         double x_coordinate = F_TF_object2robot(0,3);
         double y_coordinate = F_TF_object2robot(1,3);
         double z_coordinate = 0;
-        ROS_INFO("[Math_Final] Caculated x_coordinate is: %f, y_coordinate is: %f",x_coordinate,y_coordinate);
+        double orientation = -acos(F_TF_object2robot(0,0));
+        ROS_INFO("[Math_Final] Caculated x_coordinate is: %f, y_coordinate is: %f, Orientation is: %f",x_coordinate,y_coordinate,orientation*180/3.14515);
         
         //* Give back to system:
         block_pose_.pose.position.x = x_coordinate; 
         block_pose_.pose.position.y = y_coordinate;
         block_pose_.pose.position.z = z_coordinate;
         
-        double orientation = -acos(F_TF_object2robot(0,0));
         
         // need camera info to fill in x,y,and orientation x,y,z,w
         //geometry_msgs::Quaternion quat_est
