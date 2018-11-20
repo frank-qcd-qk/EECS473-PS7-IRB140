@@ -117,7 +117,7 @@ int main(int argc, char** argv) {
         }
         //TODO:  Move out the camera field of view
         ROS_INFO("moving out of camera view");
-        tool_pose.pose.position.y=-0.3;         
+        tool_pose.pose.position.x=-0.3;         
         tool_pose.pose.position.y=-0.5; 
         tool_pose.pose.position.z = 0.3; //0.01;         
         ROS_INFO("requesting plan to descend:");
@@ -145,7 +145,7 @@ int main(int argc, char** argv) {
         //* Populating Gripper to Object matrix:
         TF_gripper2object.row(0) <<  1,  0,  0, 0;
         TF_gripper2object.row(1) <<  0, -1,  0, 0;
-        TF_gripper2object.row(2) <<  0,  0, -1, 0;
+        TF_gripper2object.row(2) <<  0,  0, -1, 0.0343;
         TF_gripper2object.row(3) <<  0,  0,  0, 1;
 
         //* Obtain rotation matrix component for object to robot:
@@ -201,6 +201,8 @@ int main(int argc, char** argv) {
             ros::spinOnce();
             ros::Duration(0.5).sleep();
         }
+        ROS_INFO("[Critical Location:] Gripper Enabled!");
+
 
         //TODO: Move down to vacum:
         ROS_INFO("[Critical Location:] moving to pick up item");
@@ -272,10 +274,12 @@ int main(int argc, char** argv) {
             ros::spinOnce();
             ros::Duration(0.5).sleep();
         }
+        ROS_INFO("[Critical Location:] Gripper Disabled!");
+
         
         //TODO:  Move out the camera field of view
         ROS_INFO("[Critical Location:] moving out of camera view");
-        tool_pose.pose.position.y=-0.3;         
+        tool_pose.pose.position.x=-0.3;         
         tool_pose.pose.position.y=-0.5; 
         tool_pose.pose.position.z = 0.3; //0.01;          
         ROS_INFO("requesting plan to descend:");
