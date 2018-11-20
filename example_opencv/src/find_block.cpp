@@ -164,7 +164,7 @@ void ImageConverter::imageCb(const sensor_msgs::ImageConstPtr& msg){
             j_centroid = jsum / npix; // avg v component
             x_centroid = ((double) isum)/((double) npix); //floating-pt version
             y_centroid = ((double) jsum)/((double) npix);
-            ROS_INFO("u_avg: %f; v_avg: %f",x_centroid,y_centroid);
+            ROS_INFO("u_avgu_avg: %f; v_avg: %f",x_centroid,y_centroid);
             //cout << "i_avg: " << i_centroid << endl; //i,j centroid of red pixels
             //cout << "j_avg: " << j_centroid << endl;
             for (int i_box = i_centroid - half_box; i_box <= i_centroid + half_box; i_box++) {
